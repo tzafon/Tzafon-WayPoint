@@ -1,0 +1,29 @@
+[package]
+name = "instance-container"
+version = "0.1.0"
+edition = "2024"
+
+[[bin]]
+name = "browser-container"
+path = "src/browser/main.rs"
+
+[[bin]]
+name = "ephemeral-browser-proxy"
+path = "src/browser/ephemeral_browser_proxy.rs"
+
+[dependencies]
+
+anyhow = { workspace = true }
+clap = { workspace = true, features = ["derive", "env"] }
+hyper = { workspace = true, features = ["full", "client"] }
+tokio = { workspace = true, features = ["full"] }
+tokio-util = { workspace = true, features = ["full"] }
+tonic = { workspace = true }
+tracing = { workspace = true }
+tracing-subscriber = { workspace = true }
+uuid = { workspace = true, features = ["v4"] }
+shared = { path = "../rust-shared" }
+instance-manager = { path = "../rust-instance-manager" }
+
+[lints]
+workspace = true
