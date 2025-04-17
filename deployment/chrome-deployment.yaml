@@ -1,0 +1,44 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: chrome-deployment
+spec:
+  replicas: 10
+  selector:
+    matchLabels:
+      app: chrome-deployment
+  template:
+    metadata:
+      labels:
+        app: chrome-deployment
+    spec:
+      containers:
+      - name: chrome-deployment
+        image: ghcr.io/tzafon/browser-container:latest
+        command: [ "/app/browser-container" ]
+        args: ["--chrome-binary-path", "/chrome-headless-shell-linux64/chrome-headless-shell",
+            "--instance-manager", "https://instance-manager:50052"]
+        ports:
+        - name: cdp
+          containerPort: 9222
+        - name: tzafonwright
+          containerPort: 1337
+        resources:
+          limits:
+            memory: 2200Mi
+            cpu: 2000m
+        backoffLimit: 10000
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: chrome-deployment
+spec:
+  clusterIP: None
+  selector:
+    app: chrome-deployment
+  ports:
+  - port: 9222
+    name: cdp
+  - port: 1337
+    name: tzafonwright

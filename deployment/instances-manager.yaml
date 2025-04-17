@@ -1,0 +1,43 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: instance-manager
+  labels:
+    app: instance-manager
+spec:
+  selector:
+    matchLabels:
+      app: instance-manager
+  template:
+    metadata:
+      labels:
+        app: instance-manager
+    spec:
+      containers:
+      - name: instance-manager
+        image: ghcr.io/tzafon/instance-manager:latest
+        imagePullPolicy: Always
+        command: [ "/app/instance-manager" ]
+        args: [ "--port", "50052" ]
+        ports:
+        - containerPort: 50052
+          name: http
+        - containerPort: 4242
+          name: status
+        resources:
+          limits:
+            memory: 2200Mi
+            cpu: 2000m
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: instance-manager
+spec:
+  ports:
+  - port: 50052
+    name: http
+  - port: 4242
+    name: status
+  selector:
+    app: instance-manager

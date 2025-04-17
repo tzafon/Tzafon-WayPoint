@@ -1,0 +1,41 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: ephemeral-browser-proxy
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: ephemeral-browser-proxy
+  template:
+    metadata:
+      labels:
+        app: ephemeral-browser-proxy
+    spec:
+      containers:
+      - name: ephemeral-browser-proxy
+        image: ghcr.io/tzafon/ephemeral-browser-proxy:latest
+        command: [ "/app/ephemeral-browser-proxy" ]
+        args: ["--instance-manager", "https://instance-manager:50052"]
+        ports:
+        - name: cdp
+          containerPort: 9222
+        - name: tzafonwright
+          containerPort: 1337
+        resources:
+          limits:
+            memory: 2200Mi
+            cpu: 2000m
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: ephemeral-browser-proxy
+spec:
+  ports:
+  - port: 9222
+    name: cdp
+  - port: 1337
+    name: tzafonwright
+  selector:
+    app: ephemeral-browser-proxy

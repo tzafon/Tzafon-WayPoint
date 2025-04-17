@@ -1,0 +1,92 @@
+FROM lukemathwalker/cargo-chef:latest-rust-slim-bookworm AS chef
+
+RUN apt update && apt install -y protobuf-compiler
+
+WORKDIR /app
+
+FROM chef AS planner
+
+COPY ./rust-instance-manager /app/rust-instance-manager
+COPY ./rust-instance-container /app/rust-instance-container
+COPY ./rust-shared /app/rust-shared
+COPY ./proto-definition /app/proto-definition
+COPY Cargo.* /app/
+
+RUN cargo chef prepare --recipe-path recipe.json
+
+FROM chef AS dependencies
+COPY --from=planner /app/recipe.json recipe.json
+# Build dependencies - this is the caching Docker layer!
+RUN cargo chef cook --release --recipe-path recipe.json
+
+
+FROM dependencies AS builder
+# Build application
+COPY ./rust-instance-manager /app/rust-instance-manager
+COPY ./rust-instance-container /app/rust-instance-container
+COPY ./rust-shared /app/rust-shared
+COPY ./proto-definition /app/proto-definition
+COPY Cargo.* /app/
+
+RUN cargo build --release
+
+FROM debian:bookworm-slim AS instance-manager
+
+COPY --from=builder /app/target/release/instance-manager /app/instance-manager
+COPY ./proto-definition/ssl_certs /etc/ssl_certs
+
+FROM debian:bookworm-slim AS ephemeral-browser-proxy
+
+COPY --from=builder /app/target/release/ephemeral-browser-proxy /app/ephemeral-browser-proxy
+COPY ./proto-definition/ssl_certs /etc/ssl_certs
+
+FROM debian:bookworm-slim AS browser-container
+
+
+# create a group for the chrome user without root access
+RUN groupadd -g 1337 chrome
+# create a chrome user without root access with uuid 1337 and group 1337
+RUN useradd -m chrome -u 1337 -g 1337
+
+# Chrome headless shell requires these base packages
+RUN apt-get update -y && apt-get install -y \
+    unzip \
+    curl && \
+    rm -rf /var/lib/apt/lists/*
+
+# Using version 133.0.6943.126 (latest stable as of Feb 2024)
+RUN curl -fL "https://storage.googleapis.com/chrome-for-testing-public/133.0.6943.126/linux64/chrome-headless-shell-linux64.zip" -o chrome-headless-shell-linux64.zip && \
+    unzip -o chrome-headless-shell-linux64.zip && \
+    chown -R chrome:chrome chrome-headless-shell-linux64 && \
+    chmod +x chrome-headless-shell-linux64/chrome-headless-shell && \
+    rm chrome-headless-shell-linux64.zip
+
+# add new line
+RUN echo '#!/bin/bash' > install.sh && \
+    echo 'apt update;' >> install.sh && \
+    echo 'while read pkg; do' >> install.sh && \
+    echo '  apt-get satisfy -y --no-install-recommends "${pkg}";' >> install.sh && \
+    echo 'done < chrome-headless-shell-linux64/deb.deps;' >> install.sh && \
+    chmod +x ./install.sh && \
+    ./install.sh && \
+    rm -rf /var/lib/apt/lists/*
+
+# Download the latest installer
+ADD https://astral.sh/uv/install.sh /uv-installer.sh
+
+# Run the installer then remove it
+RUN sh /uv-installer.sh && rm /uv-installer.sh
+
+# Ensure the installed binary is on the `PATH`
+ENV PATH="/root/.local/bin/:$PATH"
+
+COPY tzafonwright /app/tzafonwright
+
+RUN cd /app/tzafonwright && uv sync --frozen
+
+COPY --from=builder /app/target/release/browser-container /app/browser-container
+COPY ./proto-definition/ssl_certs /etc/ssl_certs
+
+# change permissions for the ssl certs to only be readable by the root user
+RUN chmod 400 /etc/ssl_certs/*
+
