@@ -1,0 +1,209 @@
+/*
+BEWARE: Do not make unnecessary edits, this file is hashed and requires bumping the version.
+*/
+
+syntax = "proto3";
+package instance_manager;
+
+option go_package = "go-auth/internal/pb";
+
+// ===== SERVICE DEFINITIONS =====
+
+// TryService handles operations that attempt to modify the state of instances.
+// These operations are atomic and their results are relevant for control flow.
+service TryService {
+  // Registers a new instance with relevant information
+  // The result informs if the instance was added successfully
+  rpc TryAddInstance (InstanceDescription) returns (Bool);
+  
+  // Updates an instance description
+  // The result informs if the instance description was updated successfully
+  rpc TryUpdateInstanceDescription (InstanceDescription) returns (Bool);
+}
+
+// Subscribe to events.
+service SubscribeService {
+  // Subscribe to instance updates
+  rpc SubscribeToInstanceUpdates (AllInstancesQuery) returns (stream InstanceUpdate);
+}
+
+// PostService handles posting data.
+// These operations are not atomic and their results are not relevant for control flow.
+service PostService {
+  // Posts an instance description
+  // Can only change metrics, not instance metadata
+  rpc PostInstanceDescription (InstanceDescription) returns (Bool);
+}
+
+// GetService handles read-only queries that don't affect system state.
+// Timestamps in responses represent when entries were created (calculated by the server).
+// Stale and dead instances are not included in the response.
+service GetService {
+  // Gets all instances matching specified criteria
+  rpc GetAllInstances (AllInstancesQuery) returns (AllInstancesResponse);
+  
+  // Gets the description of an instance
+  rpc GetInstance (InstanceId) returns (InstanceDescription);
+}
+
+// ===== COMMON MESSAGES =====
+
+message Bool {
+  bool value = 1;
+}
+
+message InstanceId {
+  string instance_id = 1;
+}
+
+message TimestampMs {
+  uint64 timestamp_ms = 1;
+}
+
+
+// ===== ENUM DEFINITIONS =====
+
+enum InstanceType {
+  DEFAULT_INSTANCE_TYPE   = 0; // Do not use, assumed to be uninitialized default value
+  CHROME_BROWSER          = 1;
+  VIRTUAL_MACHINE         = 2;
+  WARMPOOL_CHROME_PROXY   = 3;
+  FAKE_INSTANCE           = 4; // Use this to specify that this is not connected to an actual instance
+  INSTANCE_MANAGER        = 5;
+  VLLM                    = 6;
+  BROWSER_BACKEND         = 7;
+  AGENT                   = 8;
+}
+
+enum KillReason {
+  DEFAULT_KILL_REASON     = 0;  // Do not use, assumed to be uninitialized default value
+  KILLED                  = 1;
+  TIMEOUT                 = 2;
+  HEALTH_CHECK_FAILED     = 3;
+  PARENT_DEAD             = 4;
+}
+
+enum EventType {
+  DEFAULT_EVENT_TYPE = 0; // Do not use, assumed to be uninitialized default value
+  ADDED              = 1;
+  REMOVED            = 2;
+  CHILD_ADDED        = 3;
+  PARENT_ADDED       = 4;
+  SERVICE_ADDED      = 5;
+}
+
+// ===== HEALTH RELATED MESSAGES =====
+
+message HealthCheck {
+  // Set by server
+  optional TimestampMs timestamp_ms = 1;
+}
+
+// ===== METRICS RELATED MESSAGES =====
+
+message SystemMetrics {
+  // Set by server
+  optional TimestampMs timestamp_ms = 1;
+  // Set by client
+  uint64 used_memory_bytes          = 2;
+  uint64 total_memory_bytes         = 3;
+}
+
+message ProxyMetrics {
+  // Set by server
+  optional TimestampMs timestamp_ms      = 1;
+  // Set by client
+  uint64 active_connections              = 2;
+  uint64 num_connections                 = 3;
+  uint64 client_to_server_bytes          = 4;
+  uint64 server_to_client_bytes          = 5;
+}
+
+message LlmMetrics {
+  // Set by server
+  optional TimestampMs timestamp_ms = 1;
+  // Set by client
+  uint64 num_requests               = 2;
+  uint64 tokens_received            = 3;
+  uint64 tokens_sent                = 4;
+}
+
+message GpuMetricData {
+  // Set by client
+  uint64 used_memory  = 1;
+  uint64 total_memory = 2;
+  float utilization   = 3;
+}
+
+message GpuMetrics {
+  // Set by server
+  optional TimestampMs timestamp_ms = 1;
+  // Set by client
+  repeated GpuMetricData gpu_metrics = 2;
+}
+
+// ===== INSTANCE RELATED MESSAGES =====
+
+message AllInstancesQuery {
+  // Set by client
+  InstanceType instance_type = 1;
+}
+
+message AllInstancesResponse {
+  // Set by server
+  repeated InstanceId instance_ids = 1;
+}
+
+message InstanceUpdate {
+  // Set by server
+  TimestampMs timestamp_ms = 1;
+  InstanceId instance_id = 2;
+  InstanceType instance_type = 3;
+  EventType event_type = 4;
+}
+
+message KillInstanceRequest {
+  // Set by server
+  optional TimestampMs timestamp_ms = 1;
+  // Set by client
+  KillReason kill_reason = 2;
+}
+
+message Relationship {
+  // Set by server
+  optional TimestampMs timestamp_ms = 1;
+  // Set by client
+  InstanceId instance_id = 2;
+}
+
+message Children {
+  // Set by server
+  repeated Relationship children = 1;
+}
+
+message Services {
+  // Set by server
+  optional TimestampMs timestamp_ms = 1;
+  // Set by client
+  optional string chrome_debug_port_service = 2;
+  optional string tzafonwright_service = 3;
+}
+
+message InstanceDescription {
+  // Set by server on initialization
+  optional TimestampMs created_timestamp_ms = 1;
+  // Set by client on initialization
+  optional InstanceType instance_type = 2;
+  InstanceId instance_id = 3;
+  // Set by client with TryService
+  optional KillInstanceRequest kill_instance_request = 4;
+  optional Services services = 5;
+  optional Children children = 6;
+  optional Relationship parent = 7;
+  optional HealthCheck health_check = 8;
+  // Set by client with PostService
+  optional ProxyMetrics proxy_metrics = 9;
+  optional SystemMetrics system_metrics = 10;
+  optional GpuMetrics gpu_metrics = 11;
+  optional LlmMetrics llm_metrics = 12;
+}
