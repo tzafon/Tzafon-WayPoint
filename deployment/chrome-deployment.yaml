@@ -16,8 +16,7 @@ spec:
       - name: chrome-deployment
         image: ghcr.io/tzafon/browser-container:latest
         command: [ "/app/browser-container" ]
-        args: ["--chrome-binary-path", "/chrome-headless-shell-linux64/chrome-headless-shell",
-            "--instance-manager", "https://instance-manager:50052"]
+        args: [ "--chrome-binary-path", "/chrome-headless-shell-linux64/chrome-headless-shell", "--instance-manager", "https://instance-manager:50052" ]
         ports:
         - name: cdp
           containerPort: 9222

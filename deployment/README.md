@@ -7,6 +7,7 @@ This directory contains deployment configuration and resources for the Tzafon br
 After deployment, the following services will be available:
 
 - **CDP Endpoint** `ws://ephemeral-browser-proxy:9222`
+
   - On connection: Proxies to a clean, already-running browser instance
   - On disconnection: The browser instance is terminated and a new one is prepared
   - Ensures each connection gets a fresh browser environment
@@ -26,8 +27,17 @@ After deployment, the following services will be available:
 The default approach is to deploy all components to a properly configured Kubernetes cluster. This is suitable for most use cases and provides a familiar orchestration platform.
 
 **Steps:**
+
 - Apply the Kubernetes manifests in this directory to your cluster
 - Access the services via the configured endpoints
+
+Deployment scripts:
+
+```bash
+kubectl apply -f instances-manager.yaml
+kubectl apply -f ephemeral-browser-proxy.yaml
+kubectl apply -f chrome-deployment.yaml
+```
 
 ### Recommended Hybrid Deployment
 
@@ -50,14 +60,6 @@ For improved performance and efficiency, we recommend a hybrid approach:
 - Network connectivity between both orchestration platforms
 
 > **Note**: While moving all services to Nomad is technically possible, Kubernetes has broader industry adoption, better tooling, and more extensive ecosystem support. The hybrid approach leverages the strengths of both platforms while minimizing their weaknesses.
-
-## Setup Instructions
-
-[Detailed setup instructions to be added, including:]
-- Kubernetes configuration requirements
-- Nomad cluster setup (for hybrid deployment)
-- Network configuration between clusters
-- Service verification steps
 
 ## Scaling Considerations
 
