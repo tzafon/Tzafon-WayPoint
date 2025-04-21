@@ -28,6 +28,7 @@ First, install the client:
 # Optional: Create a virtual environment
 uv venv
 # Install from the local source
+uv init
 uv pip install ./apps/tzafonwright
 ```
 
