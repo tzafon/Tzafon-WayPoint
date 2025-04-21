@@ -29,7 +29,7 @@ First, install the client:
 uv venv
 # Install from the local source
 uv init
-uv pip install ./apps/tzafonwright
+uv add ./apps/tzafonwright
 ```
 
 Then, use it in your Python script:
