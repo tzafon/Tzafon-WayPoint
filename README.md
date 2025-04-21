@@ -3,17 +3,94 @@
 
 # tzafon-WayPoint: Scale massive fleets of browsers without friction.
 
-## Overview
+<!-- Add relevant badges here: e.g., Build Status, Version, License -->
+<!-- [![Build Status](...)](...) [![Latest Version](...)](...) [![License: MIT](...)](LICENSE) -->
 
-tzafon-WayPoint is a robust, scalable solution for managing large fleets of browser instances. It enables communication with browsers and virtual machines, designed for high-throughput environments that require reliable browser automation at scale.
+## What is Tzafon-WayPoint?
 
-## Key Design Considerations
+Tzafon-WayPoint lets you reliably control thousands of web browsers using a simple Python library (`Tzafonwright`).
 
-- **Large scale**: Support for 10,000+ concurrent browser instances
-- **Low latency**: Near-instantaneous interaction with browsers
-- **Flexible deployment**: Architecture-agnostic design that doesn't depend on specific orchestration platforms (Kubernetes, Nomad, etc.)
-- **Scalable deployment**: Support for multi-cluster deployments across diverse environments
-- **Efficiency**: Optimized resource utilization to maximize session throughput
+Managing large browser fleets for automation (testing, scraping, etc.) is complex and error-prone. Tzafon-WayPoint provides a robust backend to manage browser instances (headless Chrome) and a straightforward Python client library to interact with them.
+
+**Key Benefits:**
+* **Massive Scale:** Support for 10,000+ concurrent browser sessions
+* **Simple API:** Clean Python interface instead of complex browser orchestration
+* **Reliability:** Automatic browser lifecycle management and health monitoring
+* **Efficiency:** Optimized for high-density browser deployments
+* **Flexibility:** Deploy anywhere
+
+---
+
+## Basic Usage with `Tzafonwright` (Python Client)
+
+First, install the client:
+```bash
+# Optional: Create a virtual environment
+uv venv
+# Install from the local source
+uv pip install ./apps/tzafonwright
+```
+
+Then, use it in your Python script:
+```python
+import asyncio
+from tzafonwright import TzafonWright
+
+async def main():
+    # Connect to your running Tzafon-WayPoint proxy (replace with actual URL)
+    proxy_url = "ws://localhost:1337" 
+    print(f"Connecting to Tzafon-WayPoint at {proxy_url}...")
+    try:
+        async with TzafonWright(url=proxy_url) as tw:
+            await tw.connect(timeout=30000)  # Wait for a browser instance
+            print("Connected! Navigating...")
+
+            await tw.goto("https://example.com")
+            print("Taking screenshot...")
+            screenshot_bytes = await tw.screenshot()
+            with open("example.jpg", "wb") as f:
+                f.write(screenshot_bytes)
+            print("Success! Screenshot saved as example.jpg")
+
+    except Exception as e:
+        print(f"An error occurred: {e}")
+
+if __name__ == "__main__":
+    asyncio.run(main())
+```
+
+Once connected, control the browser with:
+* **Navigate:** `await tw.goto("...")`
+* **Click (coordinates):** `await tw.click(x=..., y=...)`
+* **Type Text:** `await tw.type("...")`
+* **Take Screenshot:** `image_bytes = await tw.screenshot()`
+* **Scroll Page:** `await tw.scroll(delta_y=..., delta_x=...)`
+* **Set Viewport Size:** `await tw.set_viewport_size(width=..., height=...)`
+
+*(See the "Advanced Usage" section below for more options)*
+
+---
+
+## Key Features & Design Goals
+
+* **Large Scale:** Support for 10,000+ concurrent browser instances
+* **Low Latency:** Near-instantaneous interaction with browsers
+* **Flexible Deployment:** Architecture-agnostic design, works anywhere
+* **Scalable Deployment:** Multi-cluster support across diverse environments
+* **Efficiency:** Optimized resource utilization for maximum throughput
+* **Resilience:** Active health monitoring and automatic remediation
+* **Unified API:** Simple Python interface that abstracts browser complexity
+
+---
+
+## Common Use Cases
+
+* Large-Scale Web Scraping or Data Extraction
+* Distributed UI Testing Infrastructure
+* Browser-Based Task Automation Platforms
+* Remote Browser Interaction Services
+
+---
 
 ## Architecture
 
@@ -69,7 +146,7 @@ Encapsulates headless Chrome and integrates with the broader infrastructure:
 - Exposes Tzafonwright API on port 1337
 - Provides integration hooks for remote browser control
 
-### Ephemeral Browser Proxy (`rust-browser-container/src/ephemeral_browser_proxy.rs`)
+### Ephemeral Browser Proxy (`apps/rust-instance-container/src/browser/ephemeral_browser_proxy.rs`)
 
 Intelligent connection broker that:
 
@@ -87,68 +164,180 @@ A Python library that provides a unified control interface:
 - Abstracts Playwright completely from the client side, reducing flakiness
 - Planned support for PyAutoGUI desktop automation and browser/VM context switching
 
+---
 
-## Development
+## Installation & Deployment Options
 
-### Prerequisites
+**Option 1: Kubernetes / Helm (For Production)**
 
-- Rust (latest stable)
-- Python 3.10+
-- Docker (for containerized development)
+* Look for Kubernetes manifests in the `deployment/` directory.
+* Key considerations:
+  * Service discovery for the Instance Manager
+  * Ingress for the Ephemeral Browser Proxy (ports 1337 and 9222)
+  * Resource limits for containers
+  * Health checks
 
-### Local Development Setup
+**Option 2: Manual Native Build (Advanced)**
 
-1. **Build Rust Components**:
-   ```bash
-   cargo build --release
-   ```
+This involves building and running the components directly on your host machine.
 
-2. **Start Instance Manager**:
-   ```bash
-   ./target/release/rust-instance-manager
-   ```
+*   **Prerequisites:**
+    *   Rust (latest stable toolchain): See [rustup.rs](https://rustup.rs/)
+    *   Python 3.10+
+    *   OpenSSL development libraries (needed for certificate generation, installation varies by OS)
+    *   A locally installed Chrome/Chromium browser.
 
-3. **Launch Browser Containers**:
-   ```bash
-   ./target/release/rust-browser-container
-   ```
+*   **1. Build Rust Components:**
+    ```bash
+    # Navigate to the apps directory from the repo root
+    cd apps
+    # Build the release binaries
+    cargo build --release
+    # Binaries will be in ./target/release/
+    ```
 
-4. **Start the Proxy**:
-   ```bash
-   ./target/release/ephemeral-browser-proxy
-   ```
+*   **2. Generate TLS Certificates:**
+    *(TLS is required by default. These steps generate self-signed certificates for local development.)*
+    ```bash
+    # Navigate to the cert generation directory (relative to apps)
+    cd ../apps/proto-definition/ssl_certs
+    # Make the script executable (if needed)
+    chmod +x gen.sh
+    # Run the script
+    ./gen.sh
+    # Navigate back to the apps directory
+    cd ../../apps
+    ```
 
-5. **Install Tzafonwright**:
-   ```bash
-   pip install ./apps/tzafonwright
-   ```
+*   **3. Running Components:**
+    *(Run each command in a separate terminal from the `apps` directory)*
 
-Each component has detailed setup instructions in its respective directory README.
+    *   **Terminal 1: Start Instance Manager**
+        ```bash
+        ./target/release/instance-manager --port 50051
+        ```
 
-### Docker Deployment
+    *   **Terminal 2: Start Ephemeral Browser Proxy**
+        ```bash
+        ./target/release/ephemeral-browser-proxy \
+          --instance-manager http://localhost:50051 \
+          --tzafonwright-port 1337 \
+          --cdp-port 9222 \
+          --ca-path ../proto-definition/ssl_certs/ca/tls.crt \
+          --cert-path ../proto-definition/ssl_certs/client/tls.crt \
+          --key-path ../proto-definition/ssl_certs/client/tls.key
+        ```
 
-Build and deploy components using the provided Docker configurations:
+    *   **Terminal 3+: Start Browser Container(s)**
+        ```bash
+        # Replace the chrome path if necessary for your OS
+        CHROME_PATH="/Applications/Google Chrome.app/Contents/MacOS/Google Chrome"
 
-```bash
-docker build -f Dockerfile.rust-builder -t tzafon-browser-infra .
-```
+        ./target/release/browser-container \
+          --instance-manager http://localhost:50051 \
+          --chrome-binary-path "$CHROME_PATH" \
+          --ip-address 127.0.0.1 \
+          --ca-path ../proto-definition/ssl_certs/ca/tls.crt \
+          --cert-path ../proto-definition/ssl_certs/client/tls.crt \
+          --key-path ../proto-definition/ssl_certs/client/tls.key
+        ```
+        *   **Note on macOS:** If you see an "Operation not permitted" error when starting the container, macOS security might be blocking it from launching Chrome. Try granting permissions in `System Settings > Privacy & Security` (e.g., Automation, Developer Tools) or, for local testing **only (use with caution)**, try running the `browser-container` command with `sudo`.
+        *   The `--ip-address 127.0.0.1` flag is necessary on macOS to bypass an incompatible IP auto-detection method.
 
-CI/CD workflows automatically build and publish Docker images from the main branch.
+*   **4. Install Tzafonwright Client:**
+    ```bash
+    # Navigate back to the repository root
+    cd ..
+    # Create/activate a virtual environment
+    uv venv
+    # . .venv/bin/activate # (Optional) Activate the venv if needed for subsequent commands
+    # Install the client
+    uv pip install ./apps/tzafonwright
+    ```
 
-## Contributing
+*   **5. Run Python Test Script:**
+    *(Assuming the script from the "Basic Usage" section is saved as `simple_test.py` in the repo root)*
+    ```bash
+    # Ensure your virtual environment is active or use uv run
+    uv run simple_test.py
+    ```
 
-Contributions are welcome! Please follow these steps:
+**Core Configuration**
 
+Key settings controlled via command-line args or environment variables:
+* `INSTANCE_MANAGER_URL`: Address for Proxy and Browser Containers
+* Port settings: gRPC (Manager), Tzafonwright (Proxy), CDP (Proxy)
+* Log levels (`--debug-log` or `RUST_LOG`)
+
+---
+
+## Advanced Usage (`Tzafonwright` Client)
+
+* **Connecting to a Specific Proxy:**
+  ```python
+  async with TzafonWright(url='ws://your-proxy-hostname:1337') as tw:
+      await tw.connect()
+  ```
+* **Setting Timeouts:**
+  ```python
+  # 60 second navigation timeout
+  await tw.goto("https://example.com", timeout=60000)  # ms
+  ```
+* **Error Handling:**
+  ```python
+  try:
+      async with TzafonWright() as tw:
+          await tw.connect(timeout=30000)
+          await tw.goto("https://example.com")
+  except Exception as e:
+      print(f"Error: {e}")
+  ```
+
+---
+
+## Monitoring & Troubleshooting
+
+**Monitoring:**
+* **Metrics:** Available via HTTP endpoints on Instance Manager Ephemeral Proxy
+* **Logging:** Components log to standard output
+  * Configure with `--debug-log` or `RUST_LOG` environment variable
+
+---
+
+## Development & Contribution
+
+**Project Structure:**
+* `apps/`: Source code for services and libraries
+* `deployment/`: Deployment configurations
+* `.github/`: CI/CD workflows
+
+**Setup Development Environment:**
+1. Install Rust and Python 3.10+
+2. Install `protoc` if modifying `.proto` files
+3. Install dependencies: `cd apps/tzafonwright && uv pip install -e ".[dev]"`
+
+**Building & Testing:**
+* Rust: `cargo build --release`
+* Python: `uv pip install -e .` in `apps/tzafonwright`
+* Tests: `cargo test` and `pytest`
+
+**Contribution Guidelines:**
 1. Fork the repository
-2. Create a feature branch (`git checkout -b feature/amazing-feature`)
-3. Commit your changes (`git commit -m 'Add amazing feature'`)
-4. Push to the branch (`git push origin feature/amazing-feature`)
-5. Open a Pull Request
+2. Create a feature branch
+3. Make your changes with tests
+4. Submit a Pull Request
+
+---
 
 ## License
 
-[MIT License](LICENSE)
+This project is licensed under the [MIT Licence](LICENSE).
+
+---
 
 ## Contact
 
-For questions or support, please reach out to the tzafon team.
+For questions or support, please reach out to the tzafon team via:
+
+* GitHub Issues
+* [Other contact methods]
