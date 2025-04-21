@@ -332,6 +332,21 @@ _(See the "Advanced Usage" section below for more options)_
 3. Make your changes with tests
 4. Submit a Pull Request
 
+## Production deployments
+
+For production deployments, re-generate TLS certificates and rebuild docker images (see github workflow)
+
+```bash
+# Navigate to the cert generation directory (relative to apps)
+cd ../apps/proto-definition/ssl_certs
+# Make the script executable (if needed)
+chmod +x gen.sh
+# Run the script
+./gen.sh
+# Navigate back to the apps directory
+cd ../../apps
+```
+
 ---
 
 ## License

@@ -34,13 +34,6 @@ for path in ${paths_to_sync[@]}; do
     rsync -av $exclude_list_str $apps_folder/$path apps/
 done
 
-# pushd apps/proto-definition/ssl_certs
-# bash ./gen.sh
-# popd
-
-
-
-
-
-
-
+pushd apps/proto-definition/ssl_certs
+bash ./gen.sh
+popd
