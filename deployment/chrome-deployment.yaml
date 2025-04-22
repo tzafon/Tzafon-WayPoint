@@ -26,18 +26,3 @@ spec:
           limits:
             memory: 2200Mi
             cpu: 2000m
-        backoffLimit: 10000
----
-apiVersion: v1
-kind: Service
-metadata:
-  name: chrome-deployment
-spec:
-  clusterIP: None
-  selector:
-    app: chrome-deployment
-  ports:
-  - port: 9222
-    name: cdp
-  - port: 1337
-    name: tzafonwright
